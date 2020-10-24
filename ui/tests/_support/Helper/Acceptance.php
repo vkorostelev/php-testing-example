@@ -1,6 +1,7 @@
 <?php
 namespace Helper;
 
+use Facebook\WebDriver\WebDriver;
 use Facebook\WebDriver\WebDriverElement;
 
 class Acceptance extends \Codeception\Module
@@ -39,5 +40,25 @@ class Acceptance extends \Codeception\Module
     {
         $elementClass = $element->getAttribute('class');
         $this->assertTrue($element->isDisplayed(), "Element ${elementClass} is not visible");
+    }
+
+    public function isElementPresent($selector, $timeout = 10)
+    {
+        try {
+            $this->getModule('WebDriver')->waitForElement($selector, $timeout);
+            return true;
+        }
+        catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    public function waitFor(callable $func_or_ec, int $timeout = 10, int $interval = 200)
+    {
+        $webDriverModule = $this->getModule('WebDriver');
+        return $webDriverModule->executeInSelenium(
+            function (WebDriver $webdriver) use ($func_or_ec, $timeout, $interval) {
+                return $webdriver->wait($timeout, $interval)->until($func_or_ec);
+            });
     }
 }

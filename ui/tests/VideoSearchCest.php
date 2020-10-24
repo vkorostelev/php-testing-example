@@ -4,7 +4,7 @@ use \Codeception\Example;
 class VideoSearchCest
 {
     /**
-     * @example(searchQuery="Ураган", itemNumber="12")
+     * @example(searchQuery="Ураган", itemNumber="71")
      */
     public function videoShowsWhenHoverOnSearchResult(AcceptanceTester $I, Example $example)
     {
