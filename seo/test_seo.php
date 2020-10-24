@@ -5,14 +5,41 @@
 
         while(!feof($csvFile))
         {
-            $line = fgetcsv($csvFile,0,',','"');
-            if (is_array($line))
+            $row = fgetcsv($csvFile,0,',','"');
+            if (is_array($row))
             {
-                yield $line;
+                yield mapData($row);
             }
         }
 
         fclose($csvFile);
+    }
+
+    function mapData(array $row): array
+    {
+        $columnMapping = [
+            'url',
+            'title',
+            'description',
+            'og:title',
+            'og:description',
+            'og:site_name',
+            'og:image',
+            'og:video',
+            'og:url',
+            'og:locale',
+            'og:type'
+        ];
+        $data = array();
+
+        foreach ($row as $index => $value) {
+            $data[$columnMapping[$index]] = $value;
+        }
+
+        return array(
+            'url' => $data['url'],
+            'tags' => array_slice($data, 1)
+        );
     }
 
     function makeRequest($url)
@@ -34,50 +61,61 @@
         $document->loadHTML($html);
         libxml_clear_errors();
         $xpath = new DOMXPath($document);
+        $tags = array();
 
         $titleNode = $xpath->query('//title')->item(0);
-        $title = $titleNode ? $titleNode->nodeValue : '';
+        $tags['title'] = $titleNode ? $titleNode->nodeValue : null;
 
         $descriptionNode = $xpath->query('//meta[@name="description"]')->item(0);
-        $description = $descriptionNode ? $descriptionNode->getAttribute('content') : '';
+        $tags['description'] = $descriptionNode ? $descriptionNode->getAttribute('content') : null;
 
-        return [$title, $description];
+        foreach($xpath->query("//meta[contains(@property, 'og:')]") as $node) {
+            $tags[$node->getAttribute('property')] = $node->getAttribute('content');
+        }
+
+        return $tags;
     }
 
     function compareTag($tagName, $expected, $actual): bool
     {
-
-        if ($actual !== $expected)
-        {
-            print("\n> ${tagName}: Failed");
-            print("\n>> Expected: ${expected}");
-            print("\n>> Got: ${actual}");
-            return False;
+        if (is_null($expected) || empty($expected)) {
+            return true;
         }
 
-        print("\n> ${tagName}: ОК");
-        return True;
+        if ($actual !== $expected) {
+            print("\n> \"${tagName}\": failed");
+            print("\n>> expected: ${expected}");
+            print("\n>> got: ${actual}");
+            return false;
+        }
+
+        print("\n> \"${tagName}\": ОК");
+        return true;
     }
 
     $tests = 0;
     $failedTests = 0;
 
-    foreach( getData('./seo.csv') as [$url, $title, $description] ) {
-        print("\nChecking URL: ${url}");
-        $html = makeRequest($url);
-        [$actual_title, $actual_description] = getTags($html);
-        $titleResult = compareTag('Title', $title, $actual_title);
-        $descriptionResult = compareTag('Description', $description, $actual_description);
-        $failedTests += $titleResult && $descriptionResult ? 0 : 1;
+    foreach( getData('./seo.csv') as $data ) {
+        print("\nChecking URL: ${data['url']}");
+        $html = makeRequest($data['url']);
+        $actualTags = getTags($html);
+
+        $results = array();
+
+        foreach ($data['tags'] as $key => $value) {
+            $results[] = compareTag($key, $value, isset($actualTags[$key]) ? $actualTags[$key] : null);
+        }
+
+        $failedTests += in_array(False, $results) ? 1 : 0;
         $tests += 1;
         print("\n----------");
     }
 
     $passedTests = $tests - $failedTests;
-
     print("\nOverall test results:\nall: ${tests}, success: ${passedTests}, fail: ${failedTests}.\n");
 
-    if ($failedTests > 0){
+    if ($failedTests > 0) {
         exit(1);
     }
 
