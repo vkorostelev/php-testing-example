@@ -17,6 +17,7 @@ suites:
                             excludeSwitches: ['enable-automation']
                         }
                 - \Helper\Acceptance
+                - Asserts
 
         step_decorators:
             - Codeception\Step\ConditionalAssertion
