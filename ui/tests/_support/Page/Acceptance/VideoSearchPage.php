@@ -2,9 +2,9 @@
 namespace Page\Acceptance;
 
 use Facebook\WebDriver\Exception\NoSuchElementException;
+use Facebook\WebDriver\Exception\TimeoutException;
 use Facebook\WebDriver\WebDriverBy;
 use Facebook\WebDriver\WebDriverElement;
-use PHPUnit\Framework\Assert;
 
 
 class VideoSearchPage extends VideoPage
@@ -16,12 +16,7 @@ class VideoSearchPage extends VideoPage
     public static string $moreVideosButton = '.more_last_yes button.more__button';
     public static string $moreHiddenButton = '.more_disabled_yes .more__button_hidden_yes';
 
-    public function seeSearchItems()
-    {
-        $this->acceptanceTester->seeNumberOfElements($this::$searchItem, [1, 20]);
-    }
-
-    private function getSearchItems(): array
+    public function getSearchItems(): array
     {
         return $this->acceptanceTester->findElements($this::$searchItem);
     }
@@ -57,15 +52,22 @@ class VideoSearchPage extends VideoPage
         return $items[$itemNumber];
     }
 
-    public function seeSearchItemPreview(int $itemNumber)
+    public function isSearchItemVideoPlaying(int $itemNumber): bool
     {
         $item = $this->getSearchItem($itemNumber);
 
         try {
             $video = $item->findElement(WebDriverBy::cssSelector($this::$searchItemThumbVideo));
-            $this->acceptanceTester->seeElementIsVisible($video);
-        } catch (\Exception $e) {
-            Assert::fail("Can't find video for ${itemNumber} item. Details:\n${e}");
+            return $this->acceptanceTester->waitFor(function () use ($video) {
+                return $this->acceptanceTester->executeJS('return (
+                    arguments[0].readyState > 2
+                    && arguments[0].currentTime > 1
+                    && !arguments[0].paused
+                    && !arguments[0].ended
+                );', [$video]);
+            }, 3);
+        } catch (NoSuchElementException | TimeoutException $e) {
+            return false;
         }
     }
 
